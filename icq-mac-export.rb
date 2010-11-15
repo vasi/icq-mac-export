@@ -336,10 +336,10 @@ class HistoryExporter
   end
   
   attr_reader :chats
-  def initialize(dir, uid, mynick = nil)
-    @uid = uid.to_i
-    @mynick = mynick
+  def initialize(dir, uid = nil, mynick = nil)
     dir = Pathname.new(dir)
+    @uid = (uid ? uid : dir.basename.to_s).to_i
+    @mynick = mynick
     @db = Database.new(dir + (@uid.to_s + '.db.dat'))
     @feedbag = Feedbag.new(dir + (@uid.to_s + '.fdb'))
     
@@ -388,11 +388,13 @@ end
 if __FILE__ == $0
   require 'optparse'
   mynick = nil
+  uid = nil
   OptionParser.new do |opts|
     opts.banner = "Usage: #{File.basename($0)} OUTDIR DATADIR UID [options]"
-    opts.on('-n', '--nick', "Nick of owning user") { |n| mynick = n }
+    opts.on('-n', '--nick NICK', "Nick of owning user") { |n| mynick = n }
+    opts.on('-u', '--uid UID', "ICQ ID of owning user") { |u| uid = u }
   end.parse!
-  outdir, indir, uid = *ARGV
+  outdir, indir = *ARGV
   exporter = ICQ::HistoryExporter.new(indir, uid, mynick)
   exporter.adium(outdir)
 end
