@@ -1,4 +1,5 @@
 #!/usr/bin/ruby
+require 'iconv'
 require 'pathname'
 require 'pp'
 require 'time'
@@ -21,7 +22,7 @@ module CustomPrinter
           q.breakable ''
           meth = "pp_#{v}".to_sym
           if respond_to? meth
-            q.text send(meth)
+            q.text send(meth, v)
           else
             q.pp(send(v))
           end
@@ -190,7 +191,7 @@ class Database
     unsigned :recipient, 32, :endian => :little
     # What's in flags? Auth-request indicator?
     unsigned :flags, 32, :endian => :little
-    pad :pad2, 32
+    unsigned :flags2, 32, :endian => :little
     unsigned :msglen, 16, :endian => :little
     rest :rest
     
@@ -202,8 +203,23 @@ class Database
       self.type = type.reverse if type
       self.subtype = subtype.reverse if subtype
       
-      # Message may contain multiple fields for auth requests, wtf?
-      @message = rest[0, msglen - 1] # null term
+      # msglen may be offset by one (why?)
+      mstart = 0
+      # heuristic
+      if (msglen & 0xff) == 0 && (rest[0] < 0x20 || msglen > 0xa00) 
+        mstart = 1
+        self.msglen = (rest[0] << 8) + ((msglen & 0xff00) >> 8)
+      end
+       
+      # Message may contain multiple fields for auth requests?
+      @message = rest[mstart, msglen - 1] # null terminated
+      
+      # some messages are unicode and have a fake msglen of 256
+      if msglen == 256 && @message[0] == 0
+        # 14 bytes of header: includes some kind of sequence number?
+        len = 2 * (rest[14, 2].unpack('v').first - 1)
+        @message = Iconv.conv('UTF8', 'UTF-16BE', rest[16, len])
+      end
     end
     
     # Time is stored as epoch + offset, wtf?
@@ -216,12 +232,14 @@ class Database
     
     include CustomPrinter
     def pretty_print_instance_variables
-      %w[dat_type dat_id pos subtype timestamp sender recipient flags message]
+      %w[dat_type dat_id pos subtype timestamp sender recipient
+        flags flags2 message]
     end
     
-    def pp_flags
-      "%#x" % flags
+    def pp_flags(fld)
+      "%#x" % send(fld)
     end
+    alias :pp_flags2 :pp_flags
   end
   
   class Contact < BitStruct
@@ -251,6 +269,18 @@ class Database
   
   def by_sig(sig)
     @slots.select { |s| s.sig == sig }
+  end
+  
+  # for debugging
+  def count(msgs, fld, &disp)
+    c = {}
+    msgs.each do |m|
+      k = m.send(fld)
+      k = disp[k] if disp
+      c[k] ||= 0
+      c[k] += 1
+    end
+    pp c.sort
   end
   
   attr_reader :header, :slots, :messages, :contacts
