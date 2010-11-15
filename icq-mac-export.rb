@@ -343,8 +343,9 @@ class HistoryExporter
     end
     
     # Export to Adium ULF
+    # FIXME: account?
     def ulf
-      x = Builder::XmlMarkup.new(:indent => 4)
+      x = Builder::XmlMarkup.new
       x.instruct!
       x.chat(:xmlns => "http://purl.org/net/ulf/ns/0.4-02",
           :service => "ICQ",
@@ -354,7 +355,7 @@ class HistoryExporter
           attrs = { :sender => uid, :time => msg.timestamp.xmlschema }
           cname = @namesrc.name(uid)
           attrs[:alias] = cname if cname
-          x.message(attrs) { |x| x.div { |x| x.span(msg.message) } }
+          x.message(attrs) { |x| x.span(msg.message) }
         end
       end
       x.target!
@@ -381,7 +382,7 @@ class HistoryExporter
     end
     
     addchat = proc do |msgs, cid|
-      @chats << Chat.new(uid, cid, msgs, self)
+      @chats << Chat.new(@uid, cid, msgs, self)
     end
     
     # Messages more than an hour apart are in different chats
