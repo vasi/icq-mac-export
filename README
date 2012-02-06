@@ -27,7 +27,7 @@ Importing into Adium:
 
 - Setup your ICQ account within Adium
 - Quit Adium
-- Run the script. Use as the output directory the log directory for the account you just setup: ~/Library/Application Support/Adium\ 2.0/Users/Default/Logs/ICQ.$UIN
+- Run the script. Use as the output directory the log directory for the account you just setup: ~/Library/Application Support/Adium 2.0/Users/Default/Logs/ICQ.$UIN
 - Startup Adium
 - Choose File -> Import -> Reindex Adium Logs
 
