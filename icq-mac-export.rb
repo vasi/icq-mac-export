@@ -8,9 +8,13 @@ require 'rubygems'
 require 'bit-struct'
 require 'builder'
 
+# Based on ICQ data format as documented Miranda's import-ICQ_Db_Specs.txt
+# But it doesn't quite cover the Mac version, so many changes are made. 
+
 module ICQ
 class FormatError < Exception; end
 
+# Customize the printing of fields by using methods like pp_myfield
 module CustomPrinter
   def pretty_print(q)
     q.object_address_group(self) {
@@ -51,7 +55,7 @@ class PageHeader < BitStruct
   end
 end
 
-class Index
+class Index # Why is this here? Do we need the index? Possibly untested!
   class Header < BitStruct
     vector(:magic, 3) { unsigned :m, 32 }
     unsigned :root, 32
@@ -132,7 +136,7 @@ class Database
   
   class Page
    class Slot < BitStruct
-      unsigned :length, 32
+      unsigned :length, 32 # Not including this field
       signed :type, 32
       unsigned :dat_id, 32
       
@@ -142,10 +146,11 @@ class Database
         super(io)
         return unless io.respond_to? :read
         
-        hdrlen = 8
+        hdrlen = 8 # Don't include :length field in hdrlen
         @data = io.read(length - hdrlen)
         @sig = @data[0, 4].reverse
         
+		# Pad to multiple of alignment
         contentlen = length + 4
         align = 64
         q, r = contentlen.divmod(align)
@@ -167,7 +172,7 @@ class Database
       @slots = []
       
       align = @header.slot_size
-      skip = 0
+      skip = 0 # A slot may span multiple positions, skip extras
       @header.bitmap.unpack('B*').first.split(//).each_with_index do |b, i|
         if b != '1'
           io.read(align)
@@ -421,7 +426,7 @@ if __FILE__ == $0
   mynick = nil
   uid = nil
   OptionParser.new do |opts|
-    opts.banner = "Usage: #{File.basename($0)} OUTDIR DATADIR UID [options]"
+    opts.banner = "Usage: #{File.basename($0)} OUTDIR DATADIR [options]"
     opts.on('-n', '--nick NICK', "Nick of owning user") { |n| mynick = n }
     opts.on('-u', '--uid UID', "ICQ ID of owning user") { |u| uid = u }
   end.parse!
