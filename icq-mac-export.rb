@@ -206,22 +206,28 @@ class Database
       self.type = type.reverse if type
       self.subtype = subtype.reverse if subtype
       
-      # msglen may be offset by one (why?)
-      mstart = 0
-      # heuristic
-      if (msglen & 0xff) == 0 && (rest[0] < 0x20 || msglen > 0xa00) 
+      # Some weird things about msglen
+      mstart = 0 # Where does the message begin in :rest?
+			mfirst = rest[0]
+			unicode = false
+			
+			if msglen == 256 && mfirst == 0 # Unicode!
+			  unicode = true
+ 
+      # Sometimes msglen is actually one position later (why?)
+      # Detect with a heuristic
+      elsif (msglen & 0xff) == 0 && (mfirst < 0x20 || msglen > 0xa00)
         mstart = 1
-        self.msglen = (rest[0] << 8) + ((msglen & 0xff00) >> 8)
+        self.msglen = (mfirst << 8) + ((msglen & 0xff00) >> 8)
       end
        
-      # Message may contain multiple fields for auth requests?
-      @message = rest[mstart, msglen - 1] # null terminated
-      
-      # some messages are unicode and have a fake msglen of 256
-      if msglen == 256 && @message[0] == 0
+      if unicode
         # 14 bytes of header: includes some kind of sequence number?
         len = 2 * (rest[14, 2].unpack('v').first - 1)
         @message = Iconv.conv('UTF8', 'UTF-16BE', rest[16, len])
+      else
+        # Message may contain multiple fields for auth requests?
+        @message = rest[mstart, msglen - 1] # null terminated
       end
     end
     
