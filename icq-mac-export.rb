@@ -158,8 +158,8 @@ class Database
         io.read(@padlen - contentlen)
       end
       
+      include CustomPrinter
       def inspect
-        include CustomPrinter
         def pretty_print_instance_variables
           %w[length type dat_id pos sig]
         end
@@ -368,7 +368,13 @@ class HistoryExporter
   end
   
   def name(uid)
-    (uid == @uid) ? @mynick : @feedbag.name(uid)
+	if uid == @uid
+		@mynick
+	elsif @feedbag
+		@feedbag.name(uid)
+	else
+		nil
+	end
   end
   
   attr_reader :chats
@@ -377,7 +383,7 @@ class HistoryExporter
     @uid = (uid ? uid : dir.basename.to_s).to_i
     @mynick = mynick
     @db = Database.new(dir + (@uid.to_s + '.db.dat'))
-    @feedbag = Feedbag.new(dir + (@uid.to_s + '.fdb'))
+    @feedbag = Feedbag.new(dir + (@uid.to_s + '.fdb')) rescue nil
     
     by_contact = {}
     @db.messages.each do |msg|
