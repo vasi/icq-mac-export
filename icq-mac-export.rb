@@ -150,7 +150,7 @@ class Database
         @data = io.read(length - hdrlen)
         @sig = @data[0, 4].reverse
         
-		# Pad to multiple of alignment
+				# Pad to multiple of alignment
         contentlen = length + 4
         align = 64
         q, r = contentlen.divmod(align)
@@ -159,11 +159,9 @@ class Database
       end
       
       include CustomPrinter
-      def inspect
-        def pretty_print_instance_variables
-          %w[length type dat_id pos sig]
-        end
-      end
+			def pretty_print_instance_variables
+				%w[length type dat_id pos sig]
+			end
     end
     
     attr_reader :header, :slots
