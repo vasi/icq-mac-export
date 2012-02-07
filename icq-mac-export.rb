@@ -198,6 +198,21 @@ class Database
     unsigned :msglen, 16, :endian => :little
     rest :rest
     
+    UnicodeTag = ['ffffff00ffffff00'].pack('h*')
+    def unicode?(pos = 0, wantlen = nil)
+      [12, 14].each do |i|
+        tag = rest[pos + i - UnicodeTag.size, UnicodeTag.size]
+        if tag == UnicodeTag
+          len = rest[pos + i, 2].unpack('v').first
+          if wantlen.nil? || wantlen == len # Make sure length matches
+            chars = 2 * (len - 1)
+            return Iconv.conv('UTF8', 'UTF-16BE', rest[pos + i + 2, chars])
+          end 
+        end
+      end
+      return nil
+    end
+    
     attr_reader :slot, :message
     def initialize(slot)
       return unless slot.respond_to? :data
@@ -209,10 +224,9 @@ class Database
       # Some weird things about msglen
       mstart = 0 # Where does the message begin in :rest?
 			mfirst = rest[0]
-			unicode = false
-			
 			if msglen == 256 && mfirst == 0 # Unicode!
-			  unicode = true
+			  @message = unicode?
+			  return
  
       # Sometimes msglen is actually one position later (why?)
       # Detect with a heuristic
@@ -220,13 +234,12 @@ class Database
         mstart = 1
         self.msglen = (mfirst << 8) + ((msglen & 0xff00) >> 8)
       end
-       
-      if unicode
-        # 14 bytes of header: includes some kind of sequence number?
-        len = 2 * (rest[14, 2].unpack('v').first - 1)
-        @message = Iconv.conv('UTF8', 'UTF-16BE', rest[16, len])
+      
+      # Unicode can come after ASCII
+      if u = unicode?(mstart + msglen, msglen)
+        @message = u
       else
-        # Message may contain multiple fields for auth requests?
+        # Message may contain extra stuff at the end
         @message = rest[mstart, msglen - 1] # null terminated
       end
     end
